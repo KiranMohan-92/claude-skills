@@ -4,7 +4,7 @@ description: Final gates for a rendered video deliverable with an audio track (m
 license: MIT
 compatibility: Needs bash, ffmpeg and ffprobe (Linux, macOS or WSL). contact_sheet.sh uses awk only.
 metadata:
-  version: 0.9.0
+  version: 0.9.1
 ---
 
 # Media delivery gates
@@ -22,7 +22,7 @@ bash scripts/gate_deliverable.sh <file.mp4> [--frames N] [--lufs -14] [--lufs-to
 (`scripts/` is in this skill's folder.) It decodes every packet of both streams (metadata can look fine while the video data is corrupt), prints resolution, fps, frame count, stream starts and durations, integrated loudness and true peak, then exits 0 (PASS), 1 (FAIL, each failure printed) or 2 (usage). When a container stores no stream durations (e.g. Matroska), it measures them from the packets; a value it can't measure is a failure, never an assumed zero.
 - **Loudness target:** pick it per destination and say which. −14 LUFS is the default (common streaming normalisation); music masters are often louder on purpose, so pass `--lufs` explicitly.
 - **Expected frames:** the edit's total. One frame fewer is accepted and reported, because `-shortest` trims the last frame to the audio.
-- **True peak above −1.0 dBTP after AAC:** re-master with a lower ceiling (−3.0 dBTP on the WAV left headroom in the incident above) and remux with `-c:v copy`. Encoder flags (cutoff, coder, bitrate) were unreliable fixes, because the overshoot depends on the content.
+- **True peak above −1.0 dBTP after AAC:** first rule out a measurement or gain problem. Measure the master and the decoded file with the same true-peak meter (`ebur128=peak=true`), compare their integrated loudness, and check the chain for a gain stage (`loudnorm`, `volume`, a downmix, resampling). A rise of more than about 1.5 dB is unusual for AAC alone. If it really is codec overshoot, re-master with a lower ceiling (−3.0 dBTP on the WAV left enough headroom in the incident above) and remux with `-c:v copy`. Encoder flags (cutoff, coder, bitrate) were unreliable fixes, because the overshoot depends on the content.
 - **If any step in the pipeline was skipped, killed or failed**, assume every gate after it was skipped too, and run this gate by hand.
 
 ## 2. Visual review: changed sections densely, the whole piece sparsely

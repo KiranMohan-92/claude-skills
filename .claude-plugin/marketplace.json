@@ -6,7 +6,7 @@
     {
       "name": "agent-ops",
       "source": ".",
-      "description": "Media delivery gates, long-job updates, Windows/WSL shell rules and a transcript retro, each from a logged failure, with tested scripts and an eval suite.",
+      "description": "Media delivery gates, long-job updates, Windows/WSL shell rules, a transcript retro, Codex delegation and parallel lanes, each from a logged failure, with tested scripts and an eval suite.",
       "category": "productivity"
     }
   ]

@@ -4,7 +4,7 @@ description: Runs a self-improvement retro over Claude Code session transcripts.
 license: MIT
 compatibility: Needs Python 3.9+. Reads Claude Code transcripts from ~/.claude/projects.
 metadata:
-  version: 0.9.0
+  version: 0.9.1
 ---
 
 # Daily retro
@@ -48,5 +48,5 @@ For each friction point:
 
 ## Gotchas
 - Transcripts get big (150 MB for a multi-day session). Use the miner; never read the `.jsonl` whole.
-- Task notifications and continuation summaries appear as "user" events. The miner skips them; any hand-rolled search must too.
+- Task notifications, continuation summaries, agent-to-agent messages and SDK-launched runs (e.g. automated security reviews) all appear as "user" events. The miner skips them, and skips a session made only of automated prompts whole. Any hand-rolled search must do the same: keep a prompt when its `turnOrigin` is `human`. Older transcripts have no `turnOrigin`; keep those prompts unless the entrypoint starts with `sdk` or the event is a sidechain. Before this rule, one project's digest counted 55 automated review prompts as user messages, 17 of them as "corrections".
 - Quote the user sparingly and accurately. Never copy secrets that appear in transcripts; refer to them as "a key pasted in chat".

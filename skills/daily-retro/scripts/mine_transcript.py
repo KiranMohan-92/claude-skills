@@ -11,6 +11,10 @@ modified in the last --since hours (default 24). Writes a markdown digest (defau
   - error signatures: tool errors clustered by tool + normalised first line
   - all user messages (trimmed) with timestamps, for the narrative
 Task notifications, system reminders and continuation summaries are not counted as user messages.
+Automated prompts are not user messages either: turns whose `turnOrigin` isn't "human" (SDK runs, agent-to-agent
+"peer" messages, task notifications), subagent sidechains, and, in older transcripts without `turnOrigin`, any
+`sdk-*` entrypoint. A session made only of automated prompts (e.g. an automated security review) is skipped
+whole, tool errors included. Pass --include-automated to keep them.
 """
 import argparse
 import collections
@@ -34,12 +38,43 @@ def text_of(content):
     return "\n".join(c.get("text", "") for c in content or [] if isinstance(c, dict) and c.get("type") == "text")
 
 
-def mine(files):
+def automated(e):
+    """True when a user-type event wasn't typed by a person."""
+    if e.get("isSidechain"):
+        return True
+    origin = e.get("turnOrigin")
+    if origin is not None:
+        return origin != "human"
+    return str(e.get("entrypoint") or "").startswith("sdk")
+
+
+def mine(files, include_automated=False, stats=None):
+    users, errors, interrupts = [], [], []
+    tools = collections.Counter()
+    stats = {} if stats is None else stats
+    stats.setdefault("automated_prompts", 0)
+    stats.setdefault("automated_sessions", 0)
+    for f in files:
+        f_users, f_errors, f_interrupts, f_tools, f_auto = mine_file(f, include_automated)
+        if f_auto and not f_users and not include_automated:
+            stats["automated_prompts"] += f_auto
+            stats["automated_sessions"] += 1
+            continue
+        stats["automated_prompts"] += f_auto
+        users += f_users
+        errors += f_errors
+        interrupts += f_interrupts
+        tools.update(f_tools)
+    return users, errors, interrupts, tools
+
+
+def mine_file(f, include_automated=False):
     users, errors, interrupts = [], [], []
     tools = collections.Counter()
     ids = {}
-    for f in files:
-        for line in open(f, encoding="utf-8", errors="replace"):
+    auto = 0
+    with open(f, encoding="utf-8", errors="replace") as fh:
+        for line in fh:
             try:
                 e = json.loads(line)
             except ValueError:
@@ -71,8 +106,11 @@ def mine(files):
             if txt.startswith("[Request interrupted"):
                 interrupts.append((t, "user", txt))
                 continue
+            if automated(e) and not include_automated:
+                auto += 1
+                continue
             users.append((t, txt))
-    return users, errors, interrupts, tools
+    return users, errors, interrupts, tools, auto
 
 
 def signature(name, body):
@@ -80,12 +118,15 @@ def signature(name, body):
     return name, re.sub(r"0x[0-9a-f]+|[0-9a-f]{8,}|\d+(\.\d+)?", "#", first)[:100]
 
 
-def digest(users, errors, interrupts, tools):
+def digest(users, errors, interrupts, tools, stats=None):
     nudges = [(t, m) for t, m in users if NUDGE.match(m.strip().splitlines()[0] if m.strip() else "")]
     corrections = [(t, m) for t, m in users if CORRECTION.search(m) and (t, m) not in nudges]
     sig = collections.Counter(signature(n, b) for _, n, b in errors)
+    stats = stats or {}
     out = ["# Session friction digest", "",
            f"- user messages: {len(users)}",
+           f"- automated prompts skipped: {stats.get('automated_prompts', 0)} "
+           f"(whole automated sessions skipped: {stats.get('automated_sessions', 0)})",
            f"- tool calls: {sum(tools.values())} ({', '.join(f'{k} {v}' for k, v in tools.most_common(6))})",
            f"- tool errors: {len(errors)}",
            f"- status nudges: {len(nudges)} ({(100 * len(nudges) / max(1, len(users))):.0f}% of user messages)",
@@ -108,6 +149,8 @@ def main(argv=None):
     ap.add_argument("--project-dir", default=str(Path.home() / ".claude" / "projects"))
     ap.add_argument("--since", type=float, default=24.0, help="hours")
     ap.add_argument("--out")
+    ap.add_argument("--include-automated", action="store_true",
+                    help="count SDK, agent-to-agent and sidechain prompts as user messages")
     a = ap.parse_args(argv)
     files = [Path(f) for f in a.files]
     if not files:
@@ -117,7 +160,8 @@ def main(argv=None):
     if not files:
         print("no transcripts found", file=sys.stderr)
         return 1
-    md = digest(*mine(files))
+    stats = {}
+    md = digest(*mine(files, a.include_automated, stats), stats=stats)
     if a.out:
         Path(a.out).write_text(md, encoding="utf-8")
         print(f"wrote {a.out} from {len(files)} transcript(s)")

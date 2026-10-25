@@ -37,9 +37,11 @@ CASES = [
          source="2026-10-20: AAC overshoot 3 dB over the WAV; encoder flags were unreliable fixes",
          prompt="My gate says the encoded MP4 has a true peak of +0.6 dBTP, but the WAV master peaks at -2.4. I'm "
                 "planning to fix it by changing the AAC encoder's cutoff and bitrate. Good plan?",
-         criteria="PASS only if the answer steers away from encoder-flag tweaking as the main fix and recommends "
-                  "re-mastering the audio with a lower ceiling (around -3 dBTP or lower) and remuxing with the video "
-                  "stream copied (no video re-encode), then re-running the gate on the new file."),
+         criteria="PASS only if the answer steers away from encoder-flag tweaking (cutoff, bitrate) as the fix, and "
+                  "recommends at least one of: (a) first confirming both numbers are true peak from the same meter "
+                  "and that no gain stage (loudnorm, volume, downmix, resampling) adds level; (b) re-mastering with "
+                  "a lower true-peak ceiling and re-encoding or remuxing only the audio. It must also say to re-check "
+                  "the ENCODED file afterwards. FAIL if it endorses changing the AAC cutoff or bitrate as the fix."),
     dict(name="mdg-frame-count-shortest", skill="media-delivery-gates", kind="outcome",
          source="2026-10-20: -shortest trims the final frame to the audio",
          prompt="The edit decision list totals 4,800 frames. The gate on the final encode reports 4,799 frames. I "
@@ -175,6 +177,81 @@ CASES = [
          source="near-miss: reviewing the past week, but from git rather than sessions",
          prompt="Summarise what changed in this repository's git history over the last week. Which command would "
                 "you use?"),
+    # ---- codex-delegate ----
+    dict(name="cd-dead-lanes", skill="codex-delegate", kind="trigger",
+         source="2026-10-15: three Codex lanes died at launch while a process-count watcher reported them running",
+         prompt="From Git Bash on Windows I launched three Codex implementation lanes with wsl -e bash -lc 'nohup "
+                "codex exec ... &'. My watcher counts codex processes and says they're running, but no files have "
+                "changed in an hour. What's going on, and how should I launch and track Codex jobs?",
+         criteria="PASS only if the answer explains that a job started with a plain background & inside a wsl.exe "
+                  "call can die when that call returns, that counting processes doesn't prove a job is alive or "
+                  "productive, and recommends a detached launch (setsid/nohup/disown or equivalent) tracked by its "
+                  "own PID plus a non-empty result file. Checking network or connectivity from inside WSL first is a "
+                  "plus."),
+    dict(name="cd-empty-review", skill="codex-delegate", kind="trigger",
+         source="2026-09-26: a CRLF script produced a 0-byte review read as 'no findings'",
+         prompt="My Codex review run finished and wrote review.md, which is 0 bytes. No findings, so I can merge, "
+                "right?",
+         criteria="PASS only if the answer says no: an empty result is a failed review run, not a clean one, and "
+                  "the run must be investigated (its log, exit status) and re-run before merging. FAIL if it treats "
+                  "the empty file as 'no findings'."),
+    dict(name="cd-review-round-six", skill="codex-delegate", kind="outcome",
+         source="2026-10-13/14/20: review loops of 9, 10 and 5 rounds abandoned",
+         prompt="This is review round 5 on the same feature. Every round Codex finds one or two new P2 issues, I fix "
+                "them, and the next round finds different ones. Should I just run round 6?",
+         criteria="PASS only if the answer advises against simply running another identical round: it should say "
+                  "the loop isn't converging, recommend stopping to re-scope (or ask the user), and/or pinning the "
+                  "next review to the open findings plus new factual errors only."),
+    dict(name="cd-churn-diff", skill="codex-delegate", kind="outcome",
+         source="2026-10-25: a 4,028-line line-ending diff was sent for review",
+         prompt="I want Codex to review my uncommitted changes. I only edited one line of report.html, but git diff "
+                "--stat says 4,028 lines changed in that file. Shall I send it?",
+         criteria="PASS only if the answer identifies likely line-ending (CRLF/LF) churn or a whole-file rewrite, "
+                  "says not to send the diff as is, and recommends restoring the original line endings (or checking "
+                  "with an ignore-CR diff) so the review sees only the real one-line change."),
+    dict(name="cd-neg-openai-api", skill="codex-delegate", kind="negative",
+         source="near-miss: OpenAI vocabulary, no delegation",
+         prompt="How do I call the OpenAI Responses API from Python with streaming turned on? Just the snippet."),
+    dict(name="cd-neg-self-review", skill="codex-delegate", kind="negative",
+         source="near-miss: a code review the assistant should just do itself",
+         prompt="Quick check: is there a bug in this Python function? def last(xs): return xs[len(xs)]"),
+    # ---- parallel-lanes ----
+    dict(name="pl-coupled-split", skill="parallel-lanes", kind="trigger",
+         source="2026-09-30: merged lanes broke each other with no textual conflict (shared types and wire bits)",
+         prompt="Use swarms: spin up three parallel lanes. Lane 1 renames the PlayerState type to Avatar across the "
+                "codebase, lane 2 updates the netcode that serialises PlayerState, and lane 3 fixes the UI labels "
+                "that read its fields. How would you set this up?",
+         criteria="PASS only if the answer recognises the three tasks are tightly coupled (they touch the same type "
+                  "and files, and depend on each other's output) and recommends NOT running them as three "
+                  "independent parallel lanes: do it in one lane or one loop, or in sequence with explicit "
+                  "ownership. FAIL if it simply launches three parallel lanes as asked."),
+    dict(name="pl-seven-lanes", skill="parallel-lanes", kind="trigger",
+         source="2026-09-26/30, 10-01/02: gates OOM with 5-7 lanes; disk fell to ~450 MB",
+         prompt="Do these seven independent refactors in parallel: one git worktree lane each, and every lane runs "
+                "the full test suite when it's done. My laptop has 16 GB of RAM and 6 GB of free disk. Go.",
+         criteria="PASS only if the answer checks the machine before launching: it flags that seven lanes each "
+                  "running the full suite will likely exhaust RAM and disk, and proposes a cap (fewer concurrent "
+                  "lanes or limited concurrent gates) and a disk/RAM check. Making sure the worktree folder is "
+                  "ignored by git, formatter and linter is a plus."),
+    dict(name="pl-green-merge", skill="parallel-lanes", kind="outcome",
+         source="2026-10-01/10-17: a lane's green failed on re-run; one green run hid a ~50% flake",
+         prompt="Two parallel lanes each reported a green test run, and both merged into main with no conflicts. "
+                "Can I push main now?",
+         criteria="PASS only if the answer says to prove the merged result before pushing: run the full gate on "
+                  "merged main (no conflict does not mean compatible), and ideally re-run new tests more than once "
+                  "to catch flakes and re-check any numbers the lanes reported."),
+    dict(name="pl-cleanup-live", skill="parallel-lanes", kind="outcome",
+         source="2026-10-02: worktree cleanup deleted part of a live host's tree",
+         prompt="Disk is nearly full, so I'm going to run rm -rf .claude/worktrees/* to free space. Any problem?",
+         criteria="PASS only if the answer warns against blind rm -rf of worktrees and recommends checking that no "
+                  "running process (e.g. a server or test run) uses them, preserving uncommitted work, and removing "
+                  "them with git worktree remove (then prune) rather than rm."),
+    dict(name="pl-neg-merge-vs-rebase", skill="parallel-lanes", kind="negative",
+         source="near-miss: git vocabulary, no parallel work",
+         prompt="In two sentences, what's the difference between git merge and git rebase?"),
+    dict(name="pl-neg-asyncio", skill="parallel-lanes", kind="negative",
+         source="near-miss: 'parallel' in application code, not agent lanes",
+         prompt="How do I run three HTTP requests in parallel in Python with asyncio? Just a short snippet."),
 ]
 
 
