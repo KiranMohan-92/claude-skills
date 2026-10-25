@@ -1,0 +1,13 @@
+{
+  "name": "kiranmohan-skills",
+  "owner": { "name": "Kiran Mohan", "url": "https://github.com/KiranMohan-92" },
+  "description": "Kiran Mohan's packaged Claude Code skills: versioned and tested, with an eval suite.",
+  "plugins": [
+    {
+      "name": "agent-ops",
+      "source": ".",
+      "description": "Media delivery gates, long-job updates, Windows/WSL shell rules and a transcript retro, each from a logged failure, with tested scripts and an eval suite.",
+      "category": "productivity"
+    }
+  ]
+}

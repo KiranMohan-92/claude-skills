@@ -1,0 +1,59 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+env:
+  # Pinned so a change upstream can't silently change what "valid" means here.
+  ANTHROPIC_SKILLS_SHA: dbd4588f9e1033efb41dad4bef2f7947c8993d44
+  CLAUDE_CODE_VERSION: 2.1.287
+
+jobs:
+  validate-and-test:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install test dependencies
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q ffmpeg shellcheck
+          python -m pip install -q pytest==8.4.2 pyyaml==6.0.2
+
+      - name: Anthropic quick_validate on every skill
+        run: |
+          curl -fsSL -o /tmp/quick_validate.py \
+            "https://raw.githubusercontent.com/anthropics/skills/${ANTHROPIC_SKILLS_SHA}/skills/skill-creator/scripts/quick_validate.py"
+          for d in skills/*/; do
+            printf '%-30s ' "$d"
+            python /tmp/quick_validate.py "$d"
+          done
+
+      - name: claude plugin validate (manifest and marketplace)
+        run: |
+          npx -y "@anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}" plugin validate .claude-plugin/plugin.json
+          npx -y "@anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}" plugin validate .
+
+      - name: shellcheck
+        run: shellcheck -S warning skills/*/scripts/*.sh
+
+      - name: Eval cases are generated from the table, not hand-edited
+        run: |
+          python evals/build_cases.py
+          changed="$(git status --porcelain -- evals/)"
+          if [ -n "$changed" ]; then echo "$changed"; echo "Run python evals/build_cases.py and commit the result."; exit 1; fi
+
+      - name: pytest (scripts, ffmpeg fixtures, packaging rules)
+        run: python -m pytest -q tests

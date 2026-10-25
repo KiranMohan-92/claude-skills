@@ -1,0 +1,10 @@
+{
+  "name": "agent-ops",
+  "version": "0.9.0",
+  "description": "Skills for running long, multi-step agent work reliably: gate media deliverables, keep the user informed during long jobs, avoid Windows/WSL shell failures, and turn session transcripts into improvements. Each skill comes from a logged failure; three of the four ship tested scripts.",
+  "author": { "name": "Kiran Mohan", "url": "https://github.com/KiranMohan-92" },
+  "homepage": "https://github.com/KiranMohan-92/claude-skills",
+  "repository": "https://github.com/KiranMohan-92/claude-skills",
+  "license": "MIT",
+  "keywords": ["skills", "media", "ffmpeg", "wsl", "long-running jobs", "retro", "evals"]
+}
