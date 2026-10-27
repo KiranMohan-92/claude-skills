@@ -4,7 +4,7 @@ description: Delegates work from Claude Code to OpenAI's Codex CLI, as a reviewe
 license: MIT
 compatibility: Needs the Codex CLI (codex-cli 0.159 or later for current models), bash, curl, git, ps, coreutils timeout and util-linux setsid, so Linux or WSL (on Windows, run Codex inside WSL; macOS needs those GNU tools installed). review_loop.py needs Python 3.9+.
 metadata:
-  version: 0.10.0
+  version: 0.10.1
 ---
 
 # Codex delegate

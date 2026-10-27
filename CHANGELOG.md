@@ -2,6 +2,9 @@
 
 The plugin version moves when any skill changes. Each skill also keeps its own `metadata.version` and `CHANGELOG.md`.
 
+## 0.10.1 (2026-10-27)
+- `codex-delegate` 0.10.1: `status` no longer reports a job that finishes mid-check as killed; three new guard tests.
+
 ## 0.10.0 (2026-10-25)
 - New skills: `codex-delegate` 0.10.0 and `parallel-lanes` 0.10.0, built from one month of game development (Claude leading, Codex reviewing, 22 worktree lanes) and checked against Anthropic's guidance on when to fold subagents into the main loop.
 - `daily-retro` 0.9.1: automated prompts are no longer counted as user messages.

@@ -82,13 +82,13 @@ launch() {
   command -v "$CODEX" >/dev/null 2>&1 || die "'$CODEX' not on PATH"
   local d
   for d in "$(dirname "$out")" "$(dirname "$log")"; do [[ -d "$d" && -w "$d" ]] || die "cannot write to $d"; done
-  rm -f "$out" "$log.exit"
+  rm -f "$out" "$log.exit" "$log.exit.tmp"
   local token; token="codex-delegate-job-$(date +%s)-$$-$RANDOM"
   echo "$token" >"$log.job" || die "cannot write $log.job"
   # setsid + nohup: the job runs in its own session and outlives the shell that started it (a plain `&` died
   # with its session). The wrapper records codex's exit status, so status can tell success from a crash.
   setsid nohup bash -c 'codex="$1"; brief="$2"; out="$3"; sandbox="$4"; exitf="$5"; shift 6
-    "$codex" exec --skip-git-repo-check -s "$sandbox" -o "$out" "$@" - <"$brief"; echo $? >"$exitf"' \
+    "$codex" exec --skip-git-repo-check -s "$sandbox" -o "$out" "$@" - <"$brief"; echo $? >"$exitf.tmp"; mv -f "$exitf.tmp" "$exitf"' \
     codex-delegate "$CODEX" "$brief" "$out" "$sandbox" "$log.exit" "$token" "$@" >"$log" 2>&1 </dev/null &
   local pid=$!
   disown "$pid" 2>/dev/null || true
@@ -119,19 +119,24 @@ status() {
   need ps
   local pid token
   pid=$(cat "$log.pid"); token=$(cat "$log.job")
-  if [[ -f "$log.exit" ]]; then
-    local rc; rc=$(cat "$log.exit")
-    if [[ "$rc" == "0" && -s "$out" ]]; then echo "DONE: exit 0, $(wc -c <"$out") bytes in $out"; return 0; fi
-    # an empty result is a failure, never "no findings"
-    echo "FAILED: codex exited $rc$([[ -s "$out" ]] || echo ' with no final message'). Last log lines:"; tail -5 "$log" 2>/dev/null
-    return 1
-  fi
+  if [[ -f "$log.exit" ]]; then exit_report "$out" "$log"; return; fi
   # alive = that PID still runs OUR job (its command line carries the token) and isn't a zombie;
   # a reused PID or a counted process is not proof (a process counter once reported dead lanes as running)
   local args state
   args=$(ps -o args= -p "$pid" 2>/dev/null); state=$(ps -o stat= -p "$pid" 2>/dev/null)
   if [[ "$args" == *"$token"* && "$state" != Z* ]]; then echo "RUNNING pid $pid, log $(wc -c <"$log" 2>/dev/null || echo 0) bytes"; return 10; fi
+  # the job may have recorded its exit and ended between the first check and ps: look again before calling it killed
+  if [[ -f "$log.exit" ]]; then exit_report "$out" "$log"; return; fi
   echo "FAILED: the job ended without recording an exit status (killed?). Last log lines:"; tail -5 "$log" 2>/dev/null
+  return 1
+}
+
+exit_report() {  # exit_report OUT LOG: judge a job that recorded its exit status
+  local out=$1 log=$2 rc
+  rc=$(cat "$log.exit")
+  if [[ "$rc" == "0" && -s "$out" ]]; then echo "DONE: exit 0, $(wc -c <"$out") bytes in $out"; return 0; fi
+  # an empty result is a failure, never "no findings"
+  echo "FAILED: codex exited $rc$([[ -s "$out" ]] || echo ' with no final message'). Last log lines:"; tail -5 "$log" 2>/dev/null
   return 1
 }
 

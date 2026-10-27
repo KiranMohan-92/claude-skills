@@ -10,7 +10,7 @@ A Claude Code plugin marketplace with one plugin, **`agent-ops`**: six skills fo
 | [`long-job-updates`](skills/long-job-updates/SKILL.md) | 0.9.0 | Users chasing status ("And?") during long renders, batches and scrapes. | `waitfor.sh` (bounded, can't match itself), `progress_sheet.sh`. |
 | [`win-wsl-shell`](skills/win-wsl-shell/SKILL.md) | 0.9.0 | Quoting, path-conversion, line-ending and wait failures between Git Bash, PowerShell and WSL. | Rules only; each traces to a logged failure. |
 | [`daily-retro`](skills/daily-retro/SKILL.md) | 0.9.1 | Repeating yesterday's friction. Mines transcripts into a digest and drafts skills and rules from it. | `mine_transcript.py` with pytest; skips automated (SDK, agent-to-agent) prompts. |
-| [`codex-delegate`](skills/codex-delegate/SKILL.md) | 0.10.0 | Delegating to Codex CLI and getting nothing back: dead lanes reported as running, empty reviews read as "no findings", review loops that never converge. | `codex_run.sh` (probe, detached launch, PID status, diff scope), `review_loop.py` (verdict, pinning, stop rule); tested against a fake `codex`. |
+| [`codex-delegate`](skills/codex-delegate/SKILL.md) | 0.10.1 | Delegating to Codex CLI and getting nothing back: dead lanes reported as running, empty reviews read as "no findings", review loops that never converge. | `codex_run.sh` (probe, detached launch, PID status, diff scope), `review_loop.py` (verdict, pinning, stop rule); tested against a fake `codex`. |
 | [`parallel-lanes`](skills/parallel-lanes/SKILL.md) | 0.10.0 | Fanning out work that isn't independent, running the machine out of RAM or disk, "green" lanes that break main, and cleanup that deletes a live worktree. Starts with whether to fan out at all. | `lane_overlap.py`, `lane_preflight.py`, `lane_integrate.py`, `worktree_safe_remove.py`; tested on real repos and worktrees. |
 
 ## Install
@@ -21,20 +21,20 @@ A Claude Code plugin marketplace with one plugin, **`agent-ops`**: six skills fo
 ```
 
 ### Pin it for a team
-The plugin's version lives in `plugin.json`, and each release is tagged (`v0.9.0`, `v0.10.0`, …). Point the marketplace at a tag or a full commit SHA so nobody gets an update before it's reviewed. `enabledPlugins` alone doesn't pin a version. In managed or project settings:
+The plugin's version lives in `plugin.json`, and each release is tagged (`v0.9.0`, `v0.10.0`, `v0.10.1`, …). Point the marketplace at a tag or a full commit SHA so nobody gets an update before it's reviewed. `enabledPlugins` alone doesn't pin a version. In managed or project settings:
 
 ```json
 {
   "extraKnownMarketplaces": {
     "kiranmohan-skills": {
-      "source": { "source": "github", "repo": "KiranMohan-92/claude-skills", "ref": "v0.10.0" }
+      "source": { "source": "github", "repo": "KiranMohan-92/claude-skills", "ref": "v0.10.1" }
     }
   },
   "enabledPlugins": { "agent-ops@kiranmohan-skills": true }
 }
 ```
 
-To pin harder, a team's own marketplace can list the plugin with `"source": {"source": "github", "repo": "KiranMohan-92/claude-skills", "ref": "v0.10.0", "sha": "<40-char commit>"}`. When both are set, the SHA wins.
+To pin harder, a team's own marketplace can list the plugin with `"source": {"source": "github", "repo": "KiranMohan-92/claude-skills", "ref": "v0.10.1", "sha": "<40-char commit>"}`. When both are set, the SHA wins.
 
 ## Quality gates
 

@@ -165,6 +165,66 @@ def test_a_reused_pid_is_not_our_job(tmp_path, fake):
         other.kill()
 
 
+FAKE_PS = r"""#!/usr/bin/env bash
+# fake ps: `-o args=` prints FAKE_PS_ARGS, `-o stat=` prints FAKE_PS_STAT; with FAKE_PS_EXIT set, the job
+# "finishes" during the call (writes its exit record) and is gone
+if [[ -n "${FAKE_PS_EXIT:-}" ]]; then echo "${FAKE_PS_RC:-0}" >"$FAKE_PS_EXIT"; exit 1; fi
+case "$2" in args=) echo "$FAKE_PS_ARGS" ;; stat=) echo "$FAKE_PS_STAT" ;; esac
+"""
+
+
+def job_record(tmp_path):
+    """A recorded job (pid, token, log) as launch leaves it, without starting anything."""
+    log, out = tmp_path / "lane.log", tmp_path / "out.md"
+    (tmp_path / "lane.log.pid").write_text("4242")
+    (tmp_path / "lane.log.job").write_text("codex-delegate-job-1-2-3")
+    log.write_text("")
+    return out, log
+
+
+def fake_ps_env(tmp_path, fake, **kw):
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    (bin_dir / "ps").write_text(FAKE_PS)
+    (bin_dir / "ps").chmod(0o755)
+    e = env(fake, **kw)
+    e["PATH"] = f"{bin_dir}:{e['PATH']}"
+    return e
+
+
+def test_a_zombie_running_our_job_is_not_running(tmp_path, fake):
+    out, log = job_record(tmp_path)
+    e = fake_ps_env(tmp_path, fake, FAKE_PS_ARGS="bash -c ... codex-delegate-job-1-2-3", FAKE_PS_STAT="Z")
+    s = run("bash", RUN, "status", "--out", out, "--log", log, env=e)
+    assert s.returncode == 1, s.stdout
+    e["FAKE_PS_STAT"] = "S"  # control: the same job, not a zombie, is running
+    assert run("bash", RUN, "status", "--out", out, "--log", log, env=e).returncode == 10
+
+
+@pytest.mark.parametrize("rc,code,word", [(0, 0, "DONE"), (3, 1, "FAILED: codex exited 3")])
+def test_a_job_that_finishes_during_status_is_judged_by_its_exit(tmp_path, fake, rc, code, word):
+    out, log = job_record(tmp_path)
+    out.write_text("findings\nVERDICT: ship\n")
+    e = fake_ps_env(tmp_path, fake, FAKE_PS_EXIT=tmp_path / "lane.log.exit", FAKE_PS_RC=rc)
+    s = run("bash", RUN, "status", "--out", out, "--log", log, env=e)
+    assert s.returncode == code, s.stdout
+    assert s.stdout.startswith(word)
+
+
+def test_launch_refuses_without_setsid(tmp_path, fake):
+    import shutil
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    for tool in ("bash", "ps", "dirname"):  # what launch needs to get past its checks, except setsid
+        (bin_dir / tool).symlink_to(shutil.which(tool))
+    brief = tmp_path / "b.md"
+    brief.write_text("x")
+    r = run(shutil.which("bash"), RUN, "launch", "--brief", brief, "--out", tmp_path / "o.md", "--log", tmp_path / "l.log",
+            env=dict(env(fake), PATH=str(bin_dir)))
+    assert r.returncode == 2, r.stdout + r.stderr
+    assert "missing dependency: setsid" in r.stderr
+
+
 def test_launch_refuses_unwritable_destinations(tmp_path, fake):
     brief = tmp_path / "b.md"
     brief.write_text("x")
