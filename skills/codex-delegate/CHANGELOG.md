@@ -10,4 +10,4 @@
 - `review_loop.py`:
   - the verdict must be the exact final line; quoted or qualified verdicts fail closed;
   - a round ledger, pinning from round 4, and a stop after three fix-first rounds in a row that each find something new.
-- Tested against a fake `codex` executable, with no network or credentials. A Codex review of the first draft found 11 serious problems; each now has a regression test, and each fragile branch was mutation-checked.
+- Tested against a fake `codex` executable, with no network or credentials. A Codex review of the first drafts of this skill and `parallel-lanes` found 11 serious problems, 6 of them in this skill: 5 in the scripts and 1 in `SKILL.md`, an overstated compatibility claim, now corrected and backed by a dependency check. Each script finding now has a regression test that fails when its fix is reverted; two guard branches (zombie detection and the `setsid` check) are not yet covered by a test.
