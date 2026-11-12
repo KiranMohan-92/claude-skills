@@ -96,6 +96,20 @@ DEFECTS = {
                                     "late = true; const s = document.createElement('section'); "
                                     "s.innerHTML = '<h2>Loaded far too late</h2>'; "
                                     "setTimeout(() => document.querySelector('main').append(s), 2000); });"),
+    # A marker that eases towards the scroll position, as a scroll-driven camera does: blue near the top of
+    # the page, orange once its eased position has left it.
+    "eased_scroll": dict(
+        extra_html='<div id="lag" style="position: fixed; top: 20px; right: 20px; width: 100px; height: 100px; '
+                   'z-index: 5; background: rgb(0, 90, 255)"></div>'
+                   # a placeholder that is replaced 0.6 s after the bottom of the page is reached
+                   '<div id="late" style="position: fixed; top: 20px; left: 20px; width: 100px; height: 100px; '
+                   'z-index: 5; background: rgb(90, 90, 90)"></div>',
+        extra_js="addEventListener('scroll', () => { if (scrollY + innerHeight >= document.documentElement.scrollHeight - 2) "
+                 "setTimeout(() => { document.getElementById('late').style.background = 'rgb(0, 160, 60)'; }, 600); }); "
+                 "let eased = 0; const lag = document.getElementById('lag'); (function ease() { "
+                 "const target = scrollY / Math.max(1, document.documentElement.scrollHeight - innerHeight); "
+                 "eased += (target - eased) * (reduced ? 1 : 0.03); "
+                 "lag.style.background = eased < 0.1 ? 'rgb(0, 90, 255)' : 'rgb(255, 140, 0)'; requestAnimationFrame(ease); })();"),
     "fallback_clipped": dict(reduced_css=".mover { animation: none; } .boxless { visibility: hidden; } "
                                          ".reveal { opacity: 1; transition: none; max-height: 0; overflow: hidden; }"),
     "webgl_inside_a_worker": dict(
@@ -208,11 +222,30 @@ def test_a_section_added_when_the_bottom_is_reached_is_scrolled_too(gate):
 
 def test_a_section_that_arrives_after_the_scroll_has_ended_fails_as_ungated(gate):
     # The gate waits about a second at the bottom for a load to land. One that lands later was never scrolled, so
-    # the load must fail and say so; it must not pass with that section unseen.
+    # the load must fail and say so; it must not pass with that section unseen. All three loads must notice,
+    # the no-webgl one included: a section can be late only in the fallback.
     r, _ = gate("grows_too_late")
     fails = fail_lines(r)
     assert r.returncode == 1 and len(fails) == 3, r.stdout + r.stderr
     assert all("after it had been scrolled to the bottom" in f and "that part is ungated" in f for f in fails), fails
+
+
+def test_the_sheet_shows_the_page_at_rest_at_the_top_and_settled_at_the_bottom(gate):
+    # 0.11.0 took its stills after scrolling to the bottom and jumping back. A page whose scene eases towards the
+    # scroll position was then caught flying back from the end, and the sheet's "0%" frame showed a view no
+    # visitor sees on arrival. Here the marker is blue at rest at the top and orange while it is still on its way.
+    from PIL import Image
+    r, folder = gate("eased_scroll")
+    assert r.returncode == 0, r.stdout + r.stderr
+    sheet = Image.open(folder / "sheets" / "sheet-390x844-normal.png").convert("RGB")
+    scale = 420 / 844                                    # shots are drawn 420px tall, after an 8px gap and a 22px head
+    marker = sheet.getpixel((8 + round(320 * scale), 22 + round(70 * scale)))
+    assert marker == (0, 90, 255), marker
+    # The last frame is taken again after the wait at the bottom, so it shows what loaded there (green), not the
+    # placeholder (grey) that was on screen when the bottom was first reached.
+    last_shot_left = sheet.width - 8 - round(390 * scale)
+    late = sheet.getpixel((last_shot_left + round(70 * scale), 22 + round(70 * scale)))
+    assert late == (0, 160, 60), late
 
 
 def test_copy_clipped_or_hidden_through_a_boxless_parent_counts_as_not_shown(gate):

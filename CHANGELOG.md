@@ -2,6 +2,9 @@
 
 The plugin version moves when any skill changes. Each skill also keeps its own `metadata.version` and `CHANGELOG.md`.
 
+## 0.11.1 (2026-11-12)
+- `page-delivery-gates` 0.11.1: contact sheets no longer show a scroll-eased scene in mid-flight; one new test, which fails on 0.11.0.
+
 ## 0.11.0 (2026-11-12)
 - New skill: `page-delivery-gates` 0.11.0, the web-page counterpart of `media-delivery-gates`. It came from mining four months of transcripts for page work: the same hand-off checks had been written by hand in up to 16 sessions each.
 - 7 new eval cases (5 from logged failures, 2 near-misses), for 44 in total.

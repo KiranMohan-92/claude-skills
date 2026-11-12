@@ -4,7 +4,7 @@ description: Final gates for a web page before hand-off (landing pages, explaine
 license: MIT
 compatibility: Python 3.10+ with the playwright and pillow packages (uv run installs them from the script's header) and Playwright's Chromium (python -m playwright install chromium), or an installed Chrome via --channel chrome.
 metadata:
-  version: 0.11.0
+  version: 0.11.1
 ---
 
 # Page delivery gates
@@ -76,6 +76,7 @@ The final message gives: where the page is, the gate result per load, which shee
 - A scripted `scrollTo` barely moves a page that sets `scroll-behavior: smooth`. The gate scrolls with `behavior: 'instant'`; do the same in any probe of your own.
 - Playwright's default headless shell composites in software, and a screenshot can then show a page-coloured hole in a canvas under an animated element. The gate launches full Chromium for that reason, and runs the software renderer as the GPU when the machine has none. A hand-written `chromium.launch()` probe gets the shell.
 - The `browser:` line names the GPU the scene ran on. A shader can produce NaN (a black frame) on one vendor and not on another, so a pass on one says nothing about the other.
+- A still taken right after jumping to a scroll position shows a scroll-eased camera in mid-flight from wherever it was. The gate cuts its sheets from stills taken on the way down, one short step at a time. A probe of your own that jumps straight to a position should wait for the scene to arrive.
 - A browser tab that is hidden or in the background throttles animation to a few frames a second, and a screenshot taken there catches mid-transition states. Take evidence with the gate, not from a background tab.
 - Text that a script cycles through (a typewriter line) is compared as it happened to be shown. If the fallback shows only the first phrase, the others are reported missing. That is a real difference; either show them all or pass `--ignore`.
 - Comparing what is visible across loads only works if every part of the page was on screen in each. A probe that samples a long page at a fixed number of positions reports text as missing that it never scrolled to.

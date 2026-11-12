@@ -364,8 +364,8 @@ def run_mode(browser, url, size, mode, args, baseline):
     if mode == "no-webgl":
         worker_draws(page)
 
-    # First pass, every stop from top to bottom: sideways overflow, and the text on screen.
-    seen, worst, y, count = [], (0, 0, ""), 0, 0
+    # First pass, every stop from top to bottom: sideways overflow, the text on screen, and a still.
+    seen, stills, worst, y, count = [], [], (0, 0, ""), 0, 0
     while y is not None:
         page.evaluate("y => window.scrollTo({top: y, behavior: 'instant'})", y)
         for _ in range(3):  # an element can widen the page only while it animates in
@@ -374,6 +374,7 @@ def run_mode(browser, url, size, mode, args, baseline):
             if over > worst[0]:
                 worst = (over, y, page.evaluate(WIDEST_JS))
         seen += page.evaluate(VISIBLE_TEXT_JS)
+        stills.append((y, page.screenshot()))
         count += 1
         scrollable = page.evaluate(SCROLLABLE_JS)
         following = next_stop(y, scrollable, height)
@@ -383,6 +384,7 @@ def run_mode(browser, url, size, mode, args, baseline):
             except Exception:
                 pass
             page.wait_for_timeout(1000)
+            stills[-1] = (y, page.screenshot())  # the still from before the wait may show a placeholder
             scrollable = page.evaluate(SCROLLABLE_JS)
             following = next_stop(y, scrollable, height)
         y = following
@@ -394,13 +396,21 @@ def run_mode(browser, url, size, mode, args, baseline):
     def percent(pos):
         return round(100 * pos / scrollable) if scrollable else 0
 
-    # Second pass, five positions of the page at its final length: stills, stillness, and each large canvas.
-    shots, canvases = [], {}
-    for y in sorted({round(scrollable * f) for f in SHOT_AT}):
+    # The sheet is cut from the stills taken on the way down, one short step after another. A still taken after
+    # jumping back to a position shows a scroll-eased camera in mid-flight from wherever it was: a view no
+    # visitor gets.
+    from PIL import Image
+    wanted = {min(stills, key=lambda s: abs(s[0] - scrollable * f))[0] for f in SHOT_AT}
+    shots = [(percent(pos), Image.open(io.BytesIO(png)).convert("RGB")) for pos, png in stills if pos in wanted]
+
+    # Second pass, five positions of the page at its final length: stillness with reduced motion on, and each
+    # large canvas. Neither applies to the no-webgl load.
+    canvases = {}
+    for y in sorted({round(scrollable * f) for f in SHOT_AT}) if mode != "no-webgl" else []:
         page.evaluate("y => window.scrollTo({top: y, behavior: 'instant'})", y)
         page.wait_for_timeout(400)
-        still = shot(page)
         if mode == "reduced-motion":
+            still = shot(page)
             page.wait_for_timeout(600)
             later = shot(page)
             share = moved_share(still, later)
@@ -413,17 +423,16 @@ def run_mode(browser, url, size, mode, args, baseline):
             if share > MOVED_SHARE:
                 fails.append(f"still moving with reduced motion on: {share:.1%} of the view changed in 0.6 s "
                              f"at {percent(y)}% scroll")
-            still = later
-        shots.append((percent(y), still))
-        if mode != "no-webgl":
-            for canvas in page.evaluate(BIG_CANVASES_JS, BIG_CANVAS):
-                record = canvases.setdefault(canvas["label"], {"checked": 0, "pictured": 0, "flat": []})
-                record["checked"] += 1
-                if canvas_shows_picture(page, canvas):
-                    record["pictured"] += 1
-                else:
-                    record["flat"].append(f"{percent(y)}%")
+        for canvas in page.evaluate(BIG_CANVASES_JS, BIG_CANVAS):
+            record = canvases.setdefault(canvas["label"], {"checked": 0, "pictured": 0, "flat": []})
+            record["checked"] += 1
+            if canvas_shows_picture(page, canvas):
+                record["pictured"] += 1
+            else:
+                record["flat"].append(f"{percent(y)}%")
 
+    if mode == "no-webgl":  # no second pass here, so wait out the time the other loads spend in theirs:
+        page.wait_for_timeout(2000)  # a section that arrives late only without WebGL must still be noticed
     grew = page.evaluate(SCROLLABLE_JS) - scrollable
     if grew > 50:  # px; smaller shifts are fonts and images settling
         fails.append(f"the page grew by {grew}px after it had been scrolled to the bottom (a slow lazy load?): "

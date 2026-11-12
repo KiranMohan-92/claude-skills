@@ -1,5 +1,12 @@
 # Changelog: page-delivery-gates
 
+## 0.11.1 (2026-11-12)
+- The contact sheets are cut from stills taken on the way down the page, not after jumping back to each position.
+  - In 0.11.0 the stills were taken in a second pass. A page whose scene eases towards the scroll position was caught flying back from the bottom, so the "0%" frame showed a view no visitor sees on arrival. It was found by reading the sheet of a real page an hour after release; no test looked at what was in the picture.
+  - `tests/test_gate_page.py` now has a page with an eased marker and checks its colour in the first frame of the sheet. That test fails on 0.11.0.
+- The second pass now does only what needs a revisit: stillness with reduced motion on, and each large canvas. The no-WebGL load has no second pass; it waits two seconds in its place, so a section that arrives late only in the fallback is still noticed.
+- The still at the bottom of the page is retaken after the wait there, so it shows what loaded and not the placeholder. Both of these were regressions in the first version of this patch, found by review before release.
+
 ## 0.11.0 (2026-11-12)
 - First release. Built from four months of page work across several projects, where the same hand-off checks were written by hand in session after session (a sideways-overflow probe 144 times in 14 sessions, a reduced-motion check 81 times in 16, a no-WebGL check 56 times in 8) and both missed defects and invented them.
 - `gate_page.py` loads a page at desktop and phone width three ways (normal, reduced motion, WebGL refused) and fails on errors, failed requests, sideways overflow at any scroll stop, a canvas that never shows a picture, motion with reduced motion on, text that is visible in the normal load and not in the others, and npm-CDN scripts without an exact version. It writes one contact sheet per load for the visual review.
