@@ -2,6 +2,28 @@
 
 All runs use `claude plugin eval . --runs 3 -j 4` with the default with-without ablation. The agent under test is Opus 5.5 (`claude-opus-5-5`, from the run trace). Outcome criteria are judged by the default judge model (Haiku per the docs; the result file doesn't record it), with 3 votes per run. Cases allow read-only tools only (`Read, Glob, Grep, Skill`), so each answer is a plan or a diagnosis, not executed work, and the eval never runs the skills' scripts.
 
+## Run 3: 2026-11-12, plugin 0.11.0 (the 7 new `page-delivery-gates` cases only)
+
+- 7 cases × 3 runs × 2 arms = 42 agent runs; 163 s; $2.56 at API prices; Claude Code 2.1.310. Run with `--tag page-delivery-gates`; the other 37 cases were not re-run.
+
+| Case | With plugin | Without | Δ | Skill fired |
+|---|---|---|---|---|
+| pdg-ready-from-desktop-look | 1.00 | 0.67 | +0.33 | 0/3 |
+| pdg-fallbacks-by-inspection | 1.00 | 1.00 | 0.00 | 0/3 |
+| pdg-black-canvas-probe | 0.67 | 0.67 | 0.00 | 0/3 |
+| pdg-ambient-motion-reduced | 1.00 | 1.00 | 0.00 | 0/3 |
+| pdg-overflow-hidden-on-body | 1.00 | 0.67 | +0.33 | 0/3 |
+| **5 should-trigger cases** | **0.93** | **0.80** | **+0.13** | **0/15** |
+
+False triggers: 0 of 12 near-miss runs.
+
+What it shows:
+- **The skill never fired**, so the +0.13 can't be credited to its text. Both cases that moved did so by one run out of three, which is the noise floor of this suite. The description sits in the agent's context and may carry some of the guidance, as with `pl-cleanup-live` in run 2; that is not confirmed.
+- **Opus already answers three of the five in full** without the plugin, which caps their Δ at zero.
+- **One grader splits its votes.** `pdg-black-canvas-probe` failed one run in each arm on 2-to-1 and 3-to-0 votes for answers that blamed the CI environment without saying a direct canvas read can come back empty. The criteria join three conditions with "and"; that grader is the first to check under STANDARDS 5.4.
+- **This eval does not run `gate_page.py`.** The script's evidence is `tests/test_gate_page.py` (a real headless browser, one fixture page per incident, seven mutations caught), not this table.
+- Measured before the code review of the script. The review changed the script and four sentences of the skill's table (per-canvas judging, clipped text, OffscreenCanvas, pages that grow), and one Gotchas line was added while the run was in progress.
+
 ## Run 2: 2026-10-25, plugin 0.10.0 (37 cases)
 
 - 37 cases × 3 runs × 2 arms = 222 agent runs; 795 s; $13.65 at API prices; Claude Code 2.1.310.

@@ -2,6 +2,12 @@
 
 The plugin version moves when any skill changes. Each skill also keeps its own `metadata.version` and `CHANGELOG.md`.
 
+## 0.11.0 (2026-11-12)
+- New skill: `page-delivery-gates` 0.11.0, the web-page counterpart of `media-delivery-gates`. It came from mining four months of transcripts for page work: the same hand-off checks had been written by hand in up to 16 sessions each.
+- 7 new eval cases (5 from logged failures, 2 near-misses), for 44 in total.
+- Scored run of the new cases recorded in `evals/RESULTS.md` (run 3): 0.93 with the plugin, 0.80 without, no false triggers; the skill did not fire in any run, so the gain is not yet attributable to it.
+- CI installs Playwright's Chromium and runs the new browser tests on a runner without a GPU.
+
 ## 0.10.1 (2026-10-27)
 - `codex-delegate` 0.10.1: `status` no longer reports a job that finishes mid-check as killed; three new guard tests.
 

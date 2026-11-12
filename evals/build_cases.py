@@ -252,6 +252,63 @@ CASES = [
     dict(name="pl-neg-asyncio", skill="parallel-lanes", kind="negative",
          source="near-miss: 'parallel' in application code, not agent lanes",
          prompt="How do I run three HTTP requests in parallel in Python with asyncio? Just a short snippet."),
+    # ---- page-delivery-gates ----
+    dict(name="pdg-ready-from-desktop-look", skill="page-delivery-gates", kind="trigger",
+         source="2026-10-27: a phone-width page was 394px wide in a 390px view, only while stamps animated in mid-page",
+         prompt="I finished the landing page: index.html, a three.js scene behind scrolling sections. It looks right "
+                "in my desktop browser, and at phone width there's no horizontal scrollbar at the top of the page. "
+                "Can I tell the client it's ready and deploy it?",
+         criteria="PASS only if the answer does not call the page ready on that evidence, and names concrete checks "
+                  "still to run: sideways overflow at phone width at several scroll positions or while elements "
+                  "animate in (not only at the top), console or uncaught errors, and at least one of the "
+                  "reduced-motion view or the view without WebGL. FAIL if it approves the deploy."),
+    dict(name="pdg-fallbacks-by-inspection", skill="page-delivery-gates", kind="trigger",
+         source="2026-10-21: a 3D page was handed over with its reduced-motion and no-WebGL views never rendered",
+         prompt="I'm writing the hand-off note for our 3D explainer page. I didn't render the reduced-motion path or "
+                "the no-WebGL fallback, but all the text is plain HTML in both, so the content should still show. "
+                "I'll write 'fallbacks verified'. OK?",
+         criteria="PASS only if the answer says not to write 'verified' for views that were never loaded, and says "
+                  "either to load them (emulate prefers-reduced-motion; refuse or disable WebGL) and check that all "
+                  "the text is visible with no uncaught error, or to list them as not verified. It should give a "
+                  "reason HTML text can still fail to show, such as a reveal animation leaving it at opacity 0 or a "
+                  "script that dies when the WebGL context is refused. FAIL if it accepts 'verified' by inspection."),
+    dict(name="pdg-black-canvas-probe", skill="page-delivery-gates", kind="outcome",
+         source="2026-08-07: a pixel probe that screenshotted the canvas element read black in headless Chromium "
+                "and failed a working scene",
+         prompt="My Playwright check screenshots the canvas element of our WebGL hero and fails the build because "
+                "every pixel is black. The page looks fine when I open it in Chrome. The check runs in headless "
+                "Chromium on CI. Is the scene broken, and how should I check it instead?",
+         criteria="PASS only if the answer does not conclude the scene is broken from this evidence, explains that "
+                  "reading or screenshotting a WebGL canvas directly can come back empty or black in headless "
+                  "Chromium, and recommends judging the scene from the composited page (a page screenshot of the "
+                  "canvas area) or first confirming that headless browser has WebGL at all. FAIL if it tells the "
+                  "user to debug the shaders or the scene first."),
+    dict(name="pdg-ambient-motion-reduced", skill="page-delivery-gates", kind="outcome",
+         source="2026-10-20: the scene kept moving with reduced motion on",
+         prompt="Our scroll-driven 3D page respects prefers-reduced-motion: a media query turns off the "
+                "scroll-triggered fade-ins. The starfield still drifts and the camera keeps a slow idle orbit, which "
+                "I think is fine because it's subtle. Is the reduced-motion view ready to ship?",
+         criteria="PASS only if the answer says it is not ready: with reduced motion on, the page should hold still "
+                  "when nobody is scrolling, so the ambient loop must stop (for example by rendering one still "
+                  "frame). It should also say how to check, such as emulating reduced motion and comparing two "
+                  "captures taken a moment apart, or checking that all content still shows. FAIL if it approves the "
+                  "ambient motion because it is subtle."),
+    dict(name="pdg-overflow-hidden-on-body", skill="page-delivery-gates", kind="outcome",
+         source="2026-10-27: the phone-width overflow was fixed by clipping the panel; measured since: "
+                "overflow-x hidden on body alone leaves the page 40px too wide and still scrollable",
+         prompt="At 390 px my page scrolls sideways by a few pixels halfway down, when some decorative stamps "
+                "animate in from the right. I fixed it by adding overflow-x: hidden to body. Done?",
+         criteria="PASS only if the answer says overflow-x: hidden on body alone is not a reliable fix (the page can "
+                  "still be wider than the viewport and still scroll sideways), recommends clipping on the stamps' "
+                  "own container or fixing their width, and says to measure again at that scroll position while "
+                  "the animation runs. FAIL if it says the fix is done."),
+    dict(name="pdg-neg-flexbox-centre", skill="page-delivery-gates", kind="negative",
+         source="near-miss: web layout vocabulary, no page being handed over",
+         prompt="How do I centre a div horizontally and vertically with flexbox? Short answer."),
+    dict(name="pdg-neg-threejs-materials", skill="page-delivery-gates", kind="negative",
+         source="near-miss: three.js vocabulary, no page to gate",
+         prompt="What's the difference between MeshStandardMaterial and MeshPhysicalMaterial in three.js? Two "
+                "sentences."),
 ]
 
 

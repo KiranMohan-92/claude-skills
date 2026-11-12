@@ -30,7 +30,10 @@ jobs:
         run: |
           sudo apt-get update -q
           sudo apt-get install -y -q ffmpeg shellcheck
-          python -m pip install -q pytest==8.4.2 pyyaml==6.0.2
+          python -m pip install -q pytest==8.4.2 pyyaml==6.0.2 playwright==1.63.0 pillow==13.0.0
+          # gate_page.py needs full Chromium (not only the headless shell); the runner has no GPU,
+          # so these tests also cover its software-renderer path.
+          python -m playwright install --with-deps chromium
 
       - name: Anthropic quick_validate on every skill
         run: |
@@ -55,5 +58,5 @@ jobs:
           changed="$(git status --porcelain -- evals/)"
           if [ -n "$changed" ]; then echo "$changed"; echo "Run python evals/build_cases.py and commit the result."; exit 1; fi
 
-      - name: pytest (scripts, ffmpeg fixtures, packaging rules)
+      - name: pytest (scripts, ffmpeg and browser fixtures, packaging rules)
         run: python -m pytest -q tests
